@@ -63,7 +63,7 @@ function scrollToBottom() {
 function getAssistantResponse(userMessage) {
   return new Promise((resolve) => {
     setTimeout(() => {
-      resolve("What I Said.: " + userMessage);
+      resolve("메타몽: " + userMessage);
     }, 1500);
   });
 }
