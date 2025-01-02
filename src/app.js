@@ -149,13 +149,7 @@ async function getAssistantResponse(userMessage) {
     url = `${BASE_URL}/assistant`;
   } else {
     // Naive mode
-    const allMsgs = await getAllMessages();
-    const messagesForAPI = [
-      { role: "system", content: "You are a helpful assistant." },
-      ...allMsgs.map((m) => ({ role: m.role, content: m.content })),
-      { role: "user", content: userMessage },
-    ];
-    payload = { messages: messagesForAPI };
+    payload = { message: userMessage };
     url = `${BASE_URL}/chat`;
   }
 
