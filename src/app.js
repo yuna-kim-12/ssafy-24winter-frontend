@@ -1,9 +1,8 @@
-import "regenerator-runtime/runtime"; // if needed for async/await in older browsers
+import "regenerator-runtime/runtime";
 
 const chatContainer = document.getElementById("chat-container");
 const messageForm = document.getElementById("message-form");
 const userInput = document.getElementById("user-input");
-const apiSelector = document.getElementById("api-selector");
 const newChatBtn = document.getElementById("new-chat-btn");
 
 const BASE_URL = process.env.API_ENDPOINT;
@@ -136,51 +135,37 @@ function scrollToBottom() {
 }
 
 async function getAssistantResponse(userMessage) {
-  const mode = apiSelector.value;
-  let url;
-  let payload;
-
-  if (mode === "assistant") {
-    const thread_id = await getMetadata("thread_id");
-    payload = { message: userMessage };
-    if (thread_id) {
-      payload.thread_id = thread_id;
-    }
-    url = `${BASE_URL}/assistant`;
-  } else {
-    // Naive mode
     const allMsgs = await getAllMessages();
     const messagesForAPI = [
       { role: "system", content: "You are a helpful assistant." },
       ...allMsgs.map((m) => ({ role: m.role, content: m.content })),
       { role: "user", content: userMessage },
     ];
-    payload = { messages: messagesForAPI };
-    url = `${BASE_URL}/chat`;
-  }
+    const payload = { messages: messagesForAPI };
+    const url = `${BASE_URL}/chat`;
+    
+    try {
+      const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+    
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+      return data.reply;
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    throw new Error("Network response was not ok");
-  }
-
-  const data = await response.json();
-
-  if (mode === "assistant" && data.thread_id) {
-    const existingThreadId = await getMetadata("thread_id");
-    if (!existingThreadId) {
-      await saveMetadata("thread_id", data.thread_id);
+    } catch (error) {
+      console.error("Error fetching assistant response:", error);
+      const errMsg = "Error fetching response. Check console.";
+        chatContainer.appendChild(createMessageBubble(errMsg, "assistant"));
+        await saveMessage("assistant", errMsg);
+        scrollToBottom();
     }
-  }
-
-  return data.reply;
 }
 
 messageForm.addEventListener("submit", async (e) => {
@@ -195,17 +180,13 @@ messageForm.addEventListener("submit", async (e) => {
   scrollToBottom();
 
   try {
-    const response = await getAssistantResponse(message);
-    chatContainer.appendChild(createMessageBubble(response, "assistant"));
-    await saveMessage("assistant", response);
-    scrollToBottom();
-  } catch (error) {
-    console.error("Error fetching assistant response:", error);
-    const errMsg = "Error fetching response. Check console.";
-    chatContainer.appendChild(createMessageBubble(errMsg, "assistant"));
-    await saveMessage("assistant", errMsg);
-    scrollToBottom();
-  }
+      const response = await getAssistantResponse(message);
+      chatContainer.appendChild(createMessageBubble(response, "assistant"));
+      await saveMessage("assistant", response);
+      scrollToBottom();
+    } catch (error) {
+       console.error("Error fetching assistant response:", error);
+    }
 });
 
 async function loadExistingMessages() {
@@ -217,10 +198,8 @@ async function loadExistingMessages() {
 }
 
 newChatBtn.addEventListener("click", async () => {
-  // Clear DB data and UI
   await clearAllData();
   chatContainer.innerHTML = "";
-  // Now user can start a new chat fresh
 });
 
 initDB().then(loadExistingMessages);
