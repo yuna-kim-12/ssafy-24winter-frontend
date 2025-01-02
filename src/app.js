@@ -8,7 +8,7 @@ const newChatBtn = document.getElementById("new-chat-btn");
 
 // 환경 변수를 사용하여 BASE_URL 설정
 // Vercel 환경 변수는 process.env를 통해 접근 가능
-const BASE_URL = "/api"; // Vercel rewrites를 위한 경로
+const BASE_URL = ""; // Vercel rewrites를 위한 경로
 
 let db;
 
