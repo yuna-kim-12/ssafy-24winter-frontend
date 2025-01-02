@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+      {
+          "source": "/api/chat",
+          "destination": "https://ssafy-2024-backend-patient-dew-8466.fly.dev/chat"
+      },
+      {
+          "source": "/api/assistant",
+          "destination": "https://ssafy-2024-backend-patient-dew-8466.fly.dev/assistant"
+      }
+  ]
+}

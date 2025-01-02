@@ -3,9 +3,12 @@ import "regenerator-runtime/runtime";
 const chatContainer = document.getElementById("chat-container");
 const messageForm = document.getElementById("message-form");
 const userInput = document.getElementById("user-input");
+const apiSelector = document.getElementById("api-selector");
 const newChatBtn = document.getElementById("new-chat-btn");
 
-const BASE_URL = process.env.API_ENDPOINT;
+// 환경 변수를 사용하여 BASE_URL 설정
+// Vercel 환경 변수는 process.env를 통해 접근 가능
+const BASE_URL = "/api"; // Vercel rewrites를 위한 경로
 
 let db;
 
@@ -135,32 +138,53 @@ function scrollToBottom() {
 }
 
 async function getAssistantResponse(userMessage) {
-    const payload = { message: userMessage };
-    const url = `${BASE_URL}/chat`;
+    const mode = apiSelector.value;
+    let url;
+    let payload;
 
-    try {
-        const response = await fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+    if (mode === "assistant") {
+        const thread_id = await getMetadata("thread_id");
+        payload = { message: userMessage };
+        if (thread_id) {
+            payload.thread_id = thread_id;
         }
-        const data = await response.json();
-        return data.reply;
-    } catch (error) {
-        console.error("Error fetching assistant response:", error);
-        const errMsg = "Error fetching response. Check console.";
-        chatContainer.appendChild(createMessageBubble(errMsg, "assistant"));
-        await saveMessage("assistant", errMsg);
-        scrollToBottom();
+        url = `${BASE_URL}/assistant`;
+    } else {
+        // Naive mode
+        const allMsgs = await getAllMessages();
+        const messagesForAPI = [
+            { role: "system", content: "You are a helpful assistant." },
+            ...allMsgs.map((m) => ({ role: m.role, content: m.content })),
+            { role: "user", content: userMessage },
+        ];
+        payload = { messages: messagesForAPI };
+        url = `${BASE_URL}/chat`;
     }
-}
 
+
+    const response = await fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        throw new Error("Network response was not ok");
+    }
+
+    const data = await response.json();
+
+    if (mode === "assistant" && data.thread_id) {
+        const existingThreadId = await getMetadata("thread_id");
+        if (!existingThreadId) {
+            await saveMetadata("thread_id", data.thread_id);
+        }
+    }
+
+    return data.reply;
+}
 
 messageForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -180,6 +204,10 @@ messageForm.addEventListener("submit", async (e) => {
         scrollToBottom();
     } catch (error) {
         console.error("Error fetching assistant response:", error);
+        const errMsg = "Error fetching response. Check console.";
+        chatContainer.appendChild(createMessageBubble(errMsg, "assistant"));
+        await saveMessage("assistant", errMsg);
+        scrollToBottom();
     }
 });
 
@@ -192,8 +220,10 @@ async function loadExistingMessages() {
 }
 
 newChatBtn.addEventListener("click", async () => {
+    // Clear DB data and UI
     await clearAllData();
     chatContainer.innerHTML = "";
+    // Now user can start a new chat fresh
 });
 
 initDB().then(loadExistingMessages);
